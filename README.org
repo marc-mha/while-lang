@@ -4,17 +4,22 @@ This is my attempt at writing an implementation of the /While Language/, a compu
 The /While Language/ is a computation model equivalent to Turing Machines or Lambda Calculus in its expression of computations.
 This means that if you can write a program in a Turing Complete language, you can write it using the While Lanugage.
 
-** TODO Syntax
-The syntax of the While Language can be expressed as follows
+** Syntax
+A syntax of the While Language can be expressed as follows
+#+begin_src ebnf
+S = v ":=" a | "skip" | S ";" S | "if" b "then" S "else" S | "while" b "do" S | "(" S ")" ;
+b = "true" | "false" | a "=" a | a "<=" a | "~" b | b "&" b | "(" b ")" ;
+a = v | n | a "+" a | a "-" a | a "*" a | "(" a ")" ;
+#+end_src
 
 ** TODO Semantics
 As a computation model, the While Language has a few transitions, similar to reductions in Lambda Calculus, that take in a configuration of program and state, and return a new configuration of program and state.
 
-A /program/ is a statement, usually composed of other statements using the sequencing rule \(S ::= S_1; S_2\).
+A /program/ is a statement, usually composed of other statements using the sequencing rule $S ::= S_1; S_2$.
 These are the instructions that define a computation.
 
 /State/ is a notion of the "state" of a program and can be thought of as a set of mappings from variables to values, in this case integers.
-It is commonly represented with a \(\sigma\).
+It is commonly represented with a $\sigma$.
 
 * Example Program
 The file ~log2.whl~ contains an example program to demonstrate the syntax.
@@ -30,10 +35,10 @@ r := x - y;
 #+end_example
 
 ** Description
-This program computes a notion of the integer log base 2 of \(x\) (by default 20) and the remainder, such that
-\[
+This program computes a notion of the integer log base 2 of $x$ (by default 20) and the remainder, such that
+$$
 x = 2^z + r
-\]
+$$
 holds.
 
 ** Execution
@@ -50,4 +55,4 @@ This should output the state of the program once it has terminated:
 $ ./Main log2.whl
 [ x |-> 20, y |-> 16, z |-> 4, r |-> 4 ]
 #+end_example
-From this, we see that \(x = 2^4 + 4\).
+From this, we see that $x = 2^4 + 4$.
