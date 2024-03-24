@@ -1,0 +1,6 @@
+# Ignore Haskell auxillary files
+*.o
+*.hi
+
+# Ignore Binary
+Main
