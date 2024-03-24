@@ -22,7 +22,8 @@ These are the instructions that define a computation.
 It is commonly represented with a $\sigma$.
 
 * Example Program
-The file ~log2.whl~ contains an example program to demonstrate the syntax.
+In the folder ~examples/~ there are a number of example programs to demonstrate the syntax of the language.
+We will focus on the program ~log2.whl~ which contains
 #+begin_example
 x := 20;
 y := 1;
@@ -44,11 +45,11 @@ ghc Main.hs
 #+end_src
 then run ~Main~ with the filename as an argument,
 #+begin_src shell
-./Main log2.whl
+./Main examples/log2.whl
 #+end_src
 This should output the state of the program once it has terminated:
 #+begin_example
-$ ./Main log2.whl
+$ ./Main examples/log2.whl
 [ x |-> 20, y |-> 16, z |-> 4, r |-> 4 ]
 #+end_example
 From this, we see that $x = 2^4 + 4$.
