@@ -1,16 +1,16 @@
 module Main (main) where
 
+import Interpreter (Config (..), Mapping, State, execute)
+import Parser (Stmt, Value (..), Variable (..), parseProgram)
 import System.Environment (getArgs)
-import Parser (parseProgram, Variable(..), Value(..), Stmt)
-import Interpreter (execute, Mapping, State, Config(..))
 
 getFilename :: IO String
 getFilename = do
   args <- getArgs
-  return (
-    case args of
-      [] -> error "File name expected."
-      (fn : _) -> fn
+  return
+    ( case args of
+        [] -> error "File name expected."
+        (fn : _) -> fn
     )
 
 generateAST :: String -> [Stmt]

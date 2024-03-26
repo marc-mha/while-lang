@@ -1,10 +1,26 @@
-module Parser (Variable(..), Value(..), Stmt(..),
-               BExp(..), AExp(..), parseProgram) where
+module Parser
+  ( Variable (..),
+    Value (..),
+    Stmt (..),
+    BExp (..),
+    AExp (..),
+    parseProgram,
+  )
+where
 
-import ParserLib
-import Control.Applicative
-import Data.List (singleton)
+import Control.Applicative ( Alternative((<|>), some, many) )
 import Data.Char (isSpace)
+import Data.List (singleton)
+import ParserLib
+    ( alphanum,
+      between,
+      char,
+      digit,
+      letter,
+      parse,
+      skipSpaces,
+      string,
+      Parser )
 
 newtype Variable = Variable String deriving (Eq)
 
@@ -19,8 +35,8 @@ instance Show Value where
 data Stmt
   = Skip
   | !Variable `Assign` !AExp
-  -- | Seq ![Stmt]
-  | IfThenElse !BExp ![Stmt] ![Stmt]
+  | -- | Seq ![Stmt]
+    IfThenElse !BExp ![Stmt] ![Stmt]
   | WhileDo !BExp ![Stmt]
   deriving (Show)
 
@@ -74,27 +90,30 @@ parens :: Parser a -> Parser a
 parens = between (char '(') (char ')')
 
 parseValue :: Parser Value
-parseValue = (Value . read) <$> some digit
+parseValue = Value . read <$> some digit
 
 parseVariable :: Parser Variable
-parseVariable = Variable <$> do
-  x <- letter
-  xs <- many alphanum
-  return (x : xs)
+parseVariable =
+  Variable <$> do
+    x <- letter
+    xs <- many alphanum
+    return (x : xs)
 
 -- parse interspersed binary functions parsed by `operator`
 -- between units parsed by `p`
 chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a
-p `chainl1` operator = (do
-  a <- p
-  rest a
-  )
+p `chainl1` operator =
+  do
+      a <- p
+      rest a
   where
-    rest a = (do
-      f <- operator
-      b <- p
-      rest (f a b)
-      ) <|> return a
+    rest a =
+      ( do
+          f <- operator
+          b <- p
+          rest (f a b)
+      )
+        <|> return a
 
 parseAExp :: Parser AExp
 parseAExp = parseAAdd
@@ -109,9 +128,11 @@ parseAMul :: Parser AExp
 parseAMul = parseAUnit `chainl1` (char '*' >> return Mul)
 
 parseAUnit :: Parser AExp
-parseAUnit = token  $  (Var <$> parseVariable)
-                   <|> (Num <$> parseValue)
-                   <|> (parens parseAExp)
+parseAUnit =
+  token $
+    Var <$> parseVariable
+      <|> Num <$> parseValue
+      <|> parens parseAExp
 
 parseBExp :: Parser BExp
 parseBExp = parseBAnd
@@ -122,8 +143,7 @@ parseBAnd = parseBUnit `chainl1` (char '&' >> return And)
 parseBNot :: Parser BExp
 parseBNot = do
   char '~'
-  b <- parseBUnit
-  return (Not b)
+  Not <$> parseBUnit
 
 parseBEquals :: Parser BExp
 parseBEquals = do
@@ -140,24 +160,26 @@ parseBLessThanEquals = do
   return (a `LessThanEquals` b)
 
 parseBUnit :: Parser BExp
-parseBUnit = token  $  (BoolConst True  <$ string "tt")
-                   <|> (BoolConst False <$ string "ff")
-                   <|> parseBNot
-                   <|> (parens parseBExp)
-                   <|> parseBEquals
-                   <|> parseBLessThanEquals
+parseBUnit =
+  token $
+    BoolConst True <$ string "tt"
+      <|> BoolConst False <$ string "ff"
+      <|> parseBNot
+      <|> parens parseBExp
+      <|> parseBEquals
+      <|> parseBLessThanEquals
 
 parseSSeq :: Parser [Stmt]
 parseSSeq =
-      ( do
-            s <- parseSUnit
-            char ';'
-            skipSpaces
-            ss <- parseSSeq
-            return (s : ss)
-          )
-      <|> (singleton <$> parseSUnit)
-      <|> (return [])
+  ( do
+      s <- parseSUnit
+      char ';'
+      skipSpaces
+      ss <- parseSSeq
+      return (s : ss)
+  )
+    <|> singleton <$> parseSUnit
+    <|> return []
 
 parseSAss :: Parser Stmt
 parseSAss = do
@@ -165,8 +187,7 @@ parseSAss = do
   skipSpaces
   string ":="
   skipSpaces
-  val <- parseAExp
-  return (Assign var val)
+  Assign var <$> parseAExp
 
 parseSIf :: Parser Stmt
 parseSIf = do
@@ -185,7 +206,7 @@ parseSIf = do
   char '('
   subelse <- parseSSeq
   char ')'
-  return (IfThenElse condition (subthen) (subelse))
+  return (IfThenElse condition subthen subelse)
 
 parseSWhile :: Parser Stmt
 parseSWhile = do
@@ -198,18 +219,21 @@ parseSWhile = do
   char '('
   subprog <- parseSSeq
   char ')'
-  return (WhileDo condition (subprog))
+  return (WhileDo condition subprog)
 
 parseSUnit :: Parser Stmt
-parseSUnit = token  $  (Skip <$ string "skip")
-                   <|> (parseSAss)
-                   <|> (parseSIf)
-                   <|> (parseSWhile)
+parseSUnit =
+  token $
+    Skip <$ string "skip"
+      <|> parseSAss
+      <|> parseSIf
+      <|> parseSWhile
 
 parseProgram :: String -> Maybe [Stmt]
-parseProgram program = 
+parseProgram program =
   let output = parse parseSSeq program
    in case output of
-    Just (result, rest) | null $ dropWhile (isSpace) rest -> Just result
-                        | otherwise -> Nothing
-    Nothing -> Nothing
+        Just (result, rest)
+          | null $ dropWhile isSpace rest -> Just result
+          | otherwise -> Nothing
+        Nothing -> Nothing

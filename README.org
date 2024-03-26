@@ -1,3 +1,5 @@
+#+TITLE: README
+#+AUTHOR: Marc Thompson
 This is my attempt at writing an implementation of the /While Language/, a computation model.
 
 * The While Language

@@ -1,10 +1,21 @@
-module ParserLib (Parser, parse, item,
-                  satisfy, char, digit,
-                  letter, alphanum, string,
-                  skipSpaces, space, between) where
+module ParserLib
+  ( Parser,
+    parse,
+    item,
+    satisfy,
+    char,
+    digit,
+    letter,
+    alphanum,
+    string,
+    skipSpaces,
+    space,
+    between,
+  )
+where
 
-import Data.Char (isDigit, isSpace, isAlpha, isAlphaNum)
-import Control.Applicative
+import Control.Applicative (Alternative (empty, many, (<|>)))
+import Data.Char (isAlpha, isAlphaNum, isDigit, isSpace)
 
 newtype Parser a = Parser (String -> Maybe (a, String))
 
@@ -69,8 +80,9 @@ satisfy predicate = Parser p
   where
     p input = case parse item input of
       Nothing -> Nothing
-      Just (c, cs) | predicate c -> Just (c, cs)
-                   | otherwise -> Nothing
+      Just (c, cs)
+        | predicate c -> Just (c, cs)
+        | otherwise -> Nothing
 
 char :: Char -> Parser Char
 char c = satisfy (== c)
@@ -103,7 +115,8 @@ string (s : tring) = do
   -- try to parse the rest of the letters
   string tring
   return (s : tring)
-  -- returned the parsed first and rest
+
+-- returned the parsed first and rest
 
 -- consume spaces and ignore
 skipSpaces :: Parser ()
