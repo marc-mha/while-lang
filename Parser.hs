@@ -8,19 +8,20 @@ module Parser
   )
 where
 
-import Control.Applicative ( Alternative((<|>), some, many) )
+import Control.Applicative (Alternative (many, some, (<|>)))
 import Data.Char (isSpace)
 import Data.List (singleton)
 import ParserLib
-    ( alphanum,
-      between,
-      char,
-      digit,
-      letter,
-      parse,
-      skipSpaces,
-      string,
-      Parser )
+  ( Parser,
+    alphanum,
+    between,
+    char,
+    digit,
+    letter,
+    parse,
+    skipSpaces,
+    string, space,
+  )
 
 newtype Variable = Variable String deriving (Eq)
 
@@ -83,11 +84,10 @@ token :: Parser a -> Parser a
 token p = do
   skipSpaces
   v <- p
-  skipSpaces
   return v
 
 parens :: Parser a -> Parser a
-parens = between (char '(') (char ')')
+parens = between (token (char '(')) (token (char ')'))
 
 parseValue :: Parser Value
 parseValue = Value . read <$> some digit
@@ -104,8 +104,8 @@ parseVariable =
 chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a
 p `chainl1` operator =
   do
-      a <- p
-      rest a
+    a <- p
+    rest a
   where
     rest a =
       ( do
@@ -119,13 +119,13 @@ parseAExp :: Parser AExp
 parseAExp = parseAAdd
 
 parseAAdd :: Parser AExp
-parseAAdd = parseASub `chainl1` (char '+' >> return Add)
+parseAAdd = parseASub `chainl1` (token (char '+') >> return Add)
 
 parseASub :: Parser AExp
-parseASub = parseAMul `chainl1` (char '-' >> return Sub)
+parseASub = parseAMul `chainl1` (token (char '-') >> return Sub)
 
 parseAMul :: Parser AExp
-parseAMul = parseAUnit `chainl1` (char '*' >> return Mul)
+parseAMul = parseAUnit `chainl1` (token (char '*') >> return Mul)
 
 parseAUnit :: Parser AExp
 parseAUnit =
@@ -138,7 +138,7 @@ parseBExp :: Parser BExp
 parseBExp = parseBAnd
 
 parseBAnd :: Parser BExp
-parseBAnd = parseBUnit `chainl1` (char '&' >> return And)
+parseBAnd = parseBUnit `chainl1` (token (char '&') >> return And)
 
 parseBNot :: Parser BExp
 parseBNot = do
@@ -148,33 +148,31 @@ parseBNot = do
 parseBEquals :: Parser BExp
 parseBEquals = do
   a <- parseAExp
-  char '='
+  token (char '=')
   b <- parseAExp
   return (a `Equals` b)
 
 parseBLessThanEquals :: Parser BExp
 parseBLessThanEquals = do
   a <- parseAExp
-  string "<="
+  token (string "<=")
   b <- parseAExp
   return (a `LessThanEquals` b)
 
 parseBUnit :: Parser BExp
 parseBUnit =
-  token $
-    BoolConst True <$ string "tt"
-      <|> BoolConst False <$ string "ff"
-      <|> parseBNot
-      <|> parens parseBExp
-      <|> parseBEquals
-      <|> parseBLessThanEquals
+  BoolConst True <$ token (string "tt")
+    <|> BoolConst False <$ token (string "ff")
+    <|> token parseBNot
+    <|> parens parseBExp
+    <|> parseBEquals
+    <|> parseBLessThanEquals
 
 parseSSeq :: Parser [Stmt]
 parseSSeq =
   ( do
       s <- parseSUnit
-      char ';'
-      skipSpaces
+      token (char ';')
       ss <- parseSSeq
       return (s : ss)
   )
@@ -184,41 +182,34 @@ parseSSeq =
 parseSAss :: Parser Stmt
 parseSAss = do
   var <- parseVariable
-  skipSpaces
-  string ":="
-  skipSpaces
-  Assign var <$> parseAExp
+  token (string ":=")
+  expr <- parseAExp
+  return (Assign var expr)
 
 parseSIf :: Parser Stmt
 parseSIf = do
   string "if"
-  skipSpaces
+  some space
   condition <- parseBExp
-  skipSpaces
+  some space
   string "then"
-  skipSpaces
-  char '('
-  subthen <- parseSSeq
-  char ')'
-  skipSpaces
+  some space
+  subthen <- parens parseSSeq
+  some space
   string "else"
-  skipSpaces
-  char '('
-  subelse <- parseSSeq
-  char ')'
+  some space
+  subelse <- parens parseSSeq
   return (IfThenElse condition subthen subelse)
 
 parseSWhile :: Parser Stmt
 parseSWhile = do
   string "while"
-  skipSpaces
+  some space
   condition <- parseBExp
-  skipSpaces
+  some space
   string "do"
-  skipSpaces
-  char '('
-  subprog <- parseSSeq
-  char ')'
+  some space
+  subprog <- parens parseSSeq
   return (WhileDo condition subprog)
 
 parseSUnit :: Parser Stmt
