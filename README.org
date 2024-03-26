@@ -55,3 +55,10 @@ $ ./Main examples/log2.whl
 [ x |-> 20, y |-> 16, z |-> 4, r |-> 4 ]
 #+end_example
 From this, we see that $x = 2^4 + 4$.
+
+* Implementation Quirks
+These are some notes about quirks and inaccuracies in my implementation of the language I have described above:
+- Spaces after "if" and "while" as well as spaces surrounding "then", "else" and "do" are required, even though the syntax above does not include them.
+  - I just think this looks better.
+- Sub-statements in /if/ and /while/ clauses must be surrounded in parentheses.
+  - I might get around to removing this requirement but for now it makes parsing simpler when distinguishing between single statements and sequences of statements.
