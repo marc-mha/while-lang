@@ -11,6 +11,7 @@ module ParserLib
     skipSpaces,
     space,
     between,
+    chainl1,
   )
 where
 
@@ -133,3 +134,19 @@ between p q r = do
   result <- r
   q
   return result
+
+-- parse interspersed binary functions parsed by `operator`
+-- between units parsed by `p`
+chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a
+p `chainl1` operator =
+  do
+    a <- p
+    rest a
+  where
+    rest a =
+      ( do
+          f <- operator
+          b <- p
+          rest (f a b)
+      )
+        <|> return a
