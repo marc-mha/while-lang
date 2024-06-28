@@ -1,3 +1,7 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Use <$>" #-}
+
 module Parser
   ( Variable (..),
     Value (..),
@@ -8,7 +12,7 @@ module Parser
   )
 where
 
-import Control.Applicative (Alternative (many, some, (<|>)))
+import Control.Applicative (Alternative (many, some, (<|>)), asum)
 import Data.Char (isSpace)
 import Data.List (singleton)
 import ParserLib
@@ -18,6 +22,7 @@ import ParserLib
     chainl1,
     char,
     digit,
+    eof,
     letter,
     parse,
     skipSpaces,
@@ -25,30 +30,16 @@ import ParserLib
     string,
   )
 
-newtype Variable = Variable String deriving (Eq)
+newtype Variable = Variable String deriving (Eq, Show)
 
-newtype Value = Value Integer
-
-instance Show Variable where
-  show (Variable v) = v
-
-instance Show Value where
-  show (Value v) = show v
+newtype Value = Value Integer deriving (Show)
 
 data Stmt
   = Skip
   | !Variable `Assign` !AExp
-  | -- | Seq ![Stmt]
-    IfThenElse !BExp ![Stmt] ![Stmt]
+  | IfThenElse !BExp ![Stmt] ![Stmt]
   | WhileDo !BExp ![Stmt]
   deriving (Show)
-
--- instance Show Stmt where
---   show Skip = "skip"
---   show (Assign v e) = show v ++ " := " ++ show e
---   show (Seq program) = concat $ map (++ ";\n") $ map show program
---   show (IfThenElse b s t) = "if " ++ show b ++ " then (\n" ++ show s ++ "\n) else (\n" ++ show t ++ "\n)"
---   show (WhileDo b s) = "while " ++ show b ++ " do (\n" ++ show s ++ "\n)"
 
 data BExp
   = BoolConst !Bool
@@ -58,14 +49,6 @@ data BExp
   | !AExp `LessThanEquals` !AExp
   deriving (Show)
 
--- instance Show BExp where
---   show (BoolConst True) = "tt"
---   show (BoolConst False) = "ff"
---   show (a `Equals` b) = show a ++ " = " ++ show b
---   show (a `LessThanEquals` b) = show a ++ " <= " ++ show b
---   show (Not a) = "~(" ++ show a ++ ")"
---   show (a `And` b) = "(" ++ show a ++ ") & (" ++ show b ++ ")"
-
 data AExp
   = Var !Variable
   | Num !Value
@@ -74,26 +57,34 @@ data AExp
   | !AExp `Mul` !AExp
   deriving (Show)
 
--- instance Show AExp where
---   show (Var v) = show v
---   show (Num n) = show n
---   show (a `Add` b) = "(" ++ show a ++ " + " ++ show b ++ ")"
---   show (a `Sub` b) = "(" ++ show a ++ " - " ++ show b ++ ")"
---   show (a `Mul` b) = "(" ++ show a ++ " * " ++ show b ++ ")"
+-- | Consume contents between two delimeters, and any whitespace directly inside,
+-- discarding the delimeters.
+surround :: String -> String -> Parser a -> Parser a
+surround l r = between (string l >> skipSpaces) (skipSpaces >> string r)
 
--- ignore surrounding whitespaces
-token :: Parser a -> Parser a
-token p = do
-  skipSpaces
-  v <- p
-  return v
-
+-- | Consume contents between parentheses, and any whitespace directly inside,
+-- discarding the parentheses.
 parens :: Parser a -> Parser a
-parens = between (token (char '(')) (token (char ')'))
+parens = surround "(" ")"
 
+-- | Consume an operator, along with any surrounding whitespace, and return the
+-- parsed operator.
+operator :: Parser a -> Parser a
+operator p = do
+  skipSpaces
+  q <- p
+  skipSpaces
+  return q
+
+-- | Create a string operator parser.
+makeOperator :: String -> Parser String
+makeOperator = operator . string
+
+-- | Consume at least one digit, then convert to an integer.
 parseValue :: Parser Value
 parseValue = Value . read <$> some digit
 
+-- | Consume a valid variable name, returning it.
 parseVariable :: Parser Variable
 parseVariable =
   Variable <$> do
@@ -101,77 +92,134 @@ parseVariable =
     xs <- many alphanum
     return (x : xs)
 
+-- | Parse a general left associative (?) binary operator.
+parseLAssociative :: Parser a -> Parser (a -> a -> a) -> Parser a
+parseLAssociative p symb = p `chainl1` symb
+
+-- | Parse an arithmetic expression, WITHOUT surrounding spaces.
 parseAExp :: Parser AExp
 parseAExp = parseAAdd
 
+-- | Parse weakest operator, e.g. addition.
 parseAAdd :: Parser AExp
-parseAAdd = parseASub `chainl1` (token (char '+') >> return Add)
+parseAAdd =
+  parseLAssociative
+    parseASub
+    (makeOperator "+" >> return Add)
 
+-- | Parse 2nd weakest operator, e.g. subtraction.
 parseASub :: Parser AExp
-parseASub = parseAMul `chainl1` (token (char '-') >> return Sub)
+parseASub =
+  parseLAssociative
+    parseAMul
+    (makeOperator "-" >> return Sub)
 
+-- | Parse 3rd weakest operator, e.g. multiplication.
 parseAMul :: Parser AExp
-parseAMul = parseAUnit `chainl1` (token (char '*') >> return Mul)
+parseAMul =
+  parseLAssociative
+    parseAUnit
+    (makeOperator "*" >> return Mul)
 
+-- | Parse a 'unit' of arithmetics, e.g. a single variable, number or
+-- subexpression.
 parseAUnit :: Parser AExp
 parseAUnit =
-  token $
-    Var <$> parseVariable
-      <|> Num <$> parseValue
-      <|> parens parseAExp
+  asum
+    [ Var <$> parseVariable,
+      Num <$> parseValue,
+      parens parseAExp
+    ]
 
+-- | Parse a boolean expression, WITHOUT surrounding spaces.
 parseBExp :: Parser BExp
 parseBExp = parseBAnd
 
 parseBAnd :: Parser BExp
-parseBAnd = parseBUnit `chainl1` (token (char '&') >> return And)
+parseBAnd =
+  parseLAssociative
+    parseBUnit
+    (makeOperator "&" >> return And)
+
+-- | Parse a general unary operator.
+parseUnary :: Parser a -> Parser (a -> b) -> Parser b
+parseUnary p symb = do
+  op <- symb
+  skipSpaces
+  a <- p
+  return (op a)
 
 parseBNot :: Parser BExp
-parseBNot = do
-  char '~'
-  Not <$> parseBUnit
+parseBNot =
+  parseUnary
+    parseBUnit
+    (string "~" >> return Not)
+
+-- | Parse a general binary operator.
+parseBinary :: Parser a -> Parser b -> Parser (a -> b -> c) -> Parser c
+parseBinary p q symb = do
+  a <- p
+  op <- symb
+  b <- q
+  return (a `op` b)
 
 parseBEquals :: Parser BExp
-parseBEquals = do
-  a <- parseAExp
-  token (char '=')
-  b <- parseAExp
-  return (a `Equals` b)
+parseBEquals =
+  parseBinary
+    parseAExp
+    parseAExp
+    (makeOperator "=" >> return Equals)
 
 parseBLessThanEquals :: Parser BExp
-parseBLessThanEquals = do
-  a <- parseAExp
-  token (string "<=")
-  b <- parseAExp
-  return (a `LessThanEquals` b)
+parseBLessThanEquals =
+  parseBinary
+    parseAExp
+    parseAExp
+    (makeOperator "<=" >> return LessThanEquals)
 
 parseBUnit :: Parser BExp
 parseBUnit =
-  BoolConst True <$ token (string "tt")
-    <|> BoolConst False <$ token (string "ff")
-    <|> token parseBNot
-    <|> parens parseBExp
-    <|> parseBEquals
-    <|> parseBLessThanEquals
+  asum
+    [ BoolConst True <$ string "tt",
+      BoolConst False <$ string "ff",
+      parseBNot,
+      parens parseBExp,
+      parseBEquals,
+      parseBLessThanEquals
+    ]
 
-parseSSeq :: Parser [Stmt]
-parseSSeq =
+-- | Parses sequences of statements separated by semi-colons.
+parseSSeq' :: Parser [Stmt]
+parseSSeq' =
   ( do
       s <- parseSUnit
-      token (char ';')
+      makeOperator ";"
       ss <- parseSSeq
       return (s : ss)
   )
     <|> singleton <$> parseSUnit
     <|> return []
 
-parseSAss :: Parser Stmt
-parseSAss = do
-  var <- parseVariable
-  token (string ":=")
-  expr <- parseAExp
-  return (Assign var expr)
+-- | Another alternative sequence parser using semi-colons as operators.
+parseSSeq :: Parser [Stmt]
+parseSSeq =
+  parseBinary
+    parseSUnit
+    parseSSeq
+    (makeOperator ";" >> return (:))
+    <|> singleton <$> parseSUnit -- To allow not terminating a line with a
+    -- semi-colon.
+    <|> return []
 
+-- | Parses assignment statements.
+parseSAss :: Parser Stmt
+parseSAss =
+  parseBinary
+    parseVariable
+    parseAExp
+    (makeOperator ":=" >> return Assign)
+
+-- | Parses if statements.
 parseSIf :: Parser Stmt
 parseSIf = do
   string "if"
@@ -180,13 +228,14 @@ parseSIf = do
   some space
   string "then"
   some space
-  subthen <- parens parseSSeq
+  subthen <- parseSSub
   some space
   string "else"
   some space
-  subelse <- parens parseSSeq
+  subelse <- parseSSub
   return (IfThenElse condition subthen subelse)
 
+-- | Parses while statements.
 parseSWhile :: Parser Stmt
 parseSWhile = do
   string "while"
@@ -195,22 +244,32 @@ parseSWhile = do
   some space
   string "do"
   some space
-  subprog <- parens parseSSeq
+  subprog <- parseSSub
   return (WhileDo condition subprog)
 
+-- | Parses a single statement, e.g. an assignment, if, or while statement.
 parseSUnit :: Parser Stmt
 parseSUnit =
-  token $
-    Skip <$ string "skip"
-      <|> parseSAss
-      <|> parseSIf
-      <|> parseSWhile
+  asum
+    [ Skip <$ string "skip",
+      parseSAss,
+      parseSIf,
+      parseSWhile
+    ]
 
+-- | Parses a subprogram. Either a single statement, or multiple wrapped in
+-- parenthesis.
+parseSSub :: Parser [Stmt]
+parseSSub = parens parseSSeq <|> singleton <$> parseSUnit
+
+-- | Parses a whole program and returns it as a sequence of statements, failing
+-- if there are leftover unparsed characters.
 parseProgram :: String -> Maybe [Stmt]
-parseProgram program =
-  let output = parse parseSSeq program
-   in case output of
-        Just (result, rest)
-          | null $ dropWhile isSpace rest -> Just result
-          | otherwise -> Nothing
-        Nothing -> Nothing
+parseProgram program = fst <$> parse parseProgram' program
+  where
+    parseProgram' :: Parser [Stmt]
+    parseProgram' = do
+      p <- parseSSeq
+      skipSpaces
+      eof
+      return p

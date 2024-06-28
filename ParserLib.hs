@@ -1,3 +1,7 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+
+{-# HLINT ignore "Eta reduce" #-}
+
 module ParserLib
   ( Parser,
     parse,
@@ -12,6 +16,7 @@ module ParserLib
     space,
     between,
     chainl1,
+    eof,
   )
 where
 
@@ -20,11 +25,11 @@ import Data.Char (isAlpha, isAlphaNum, isDigit, isSpace)
 
 newtype Parser a = Parser (String -> Maybe (a, String))
 
--- Apply parser to input to get a result and the rest of the input
+-- | Run parser on input to get parsed result with rest of input.
 parse :: Parser a -> String -> Maybe (a, String)
 parse (Parser p) input = p input
 
--- Parser that just gives the first character
+-- | Parses the next character.
 item :: Parser Char
 item = Parser p
   where
@@ -76,6 +81,7 @@ instance Alternative Parser where
         Nothing -> parse q input
         Just (result, rest) -> Just (result, rest)
 
+-- | Parse a character if it satisfies a predicate.
 satisfy :: (Char -> Bool) -> Parser Char
 satisfy predicate = Parser p
   where
@@ -97,17 +103,6 @@ letter = satisfy isAlpha
 alphanum :: Parser Char
 alphanum = satisfy isAlphaNum
 
--- -- Attempt at non-monadic implementation of string
--- string' :: String -> Parser String
--- string' [] = pure []
--- string' (s : tring) = Parser p
---   where
---     p input = case parse (char s) input of
---       Nothing -> Nothing
---       Just (c, rest) -> case parse (string' tring) rest of
---         Nothing -> Nothing
---         Just (str, rest') -> Just (c : str, rest')
-
 string :: String -> Parser String
 string [] = return []
 string (s : tring) = do
@@ -117,26 +112,25 @@ string (s : tring) = do
   string tring
   return (s : tring)
 
--- returned the parsed first and rest
-
--- consume spaces and ignore
+-- | Consume spaces and ignore.
 skipSpaces :: Parser ()
 skipSpaces = do
-  many (satisfy isSpace)
+  many space
   return ()
 
 space :: Parser Char
 space = satisfy isSpace
 
-between :: Parser Char -> Parser Char -> Parser a -> Parser a
+-- | Consume delimeters and parse inside.
+between :: Parser a -> Parser b -> Parser c -> Parser c
 between p q r = do
   p
   result <- r
   q
   return result
 
--- parse interspersed binary functions parsed by `operator`
--- between units parsed by `p`
+-- | Parse interspersed binary functions parsed by `operator`
+-- between units parsed by `p`.
 chainl1 :: Parser a -> Parser (a -> a -> a) -> Parser a
 p `chainl1` operator =
   do
@@ -150,3 +144,10 @@ p `chainl1` operator =
           rest (f a b)
       )
         <|> return a
+
+-- | Parses the end of file, fails if not end of file.
+eof :: Parser ()
+eof = Parser p
+  where
+    p "" = Just ((), "")
+    p _ = Nothing
