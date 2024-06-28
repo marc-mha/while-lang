@@ -7,10 +7,7 @@ type Mapping = (Variable, Integer)
 
 type State = [Mapping]
 
-data Config = Config [Stmt] State
-
-instance Show Config where
-  show (Config program state) = "<" ++ show program ++ ", " ++ show state ++ ">"
+type Config = ([Stmt], State)
 
 modifyState :: State -> Mapping -> State
 modifyState (m : ms) new_m =
@@ -45,13 +42,13 @@ assign :: State -> Variable -> AExp -> State
 assign state x expr = modifyState state (x, evalA expr state)
 
 step :: Config -> Either State Config
-step (Config program state) = case program of
+step (program, state) = case program of
   [] -> Left state
   (instruction : next) -> Right $ case instruction of
-    IfThenElse b s t -> Config ((if evalB b state then s else t) ++ next) state
-    w@(WhileDo b s) -> Config (IfThenElse b (s ++ [w]) [Skip] : next) state
-    Assign x expr -> Config next (assign state x expr)
-    Skip -> Config next state
+    IfThenElse b s t -> ((if evalB b state then s else t) ++ next, state)
+    w@(WhileDo b s) -> (IfThenElse b (s ++ [w]) [Skip] : next, state)
+    Assign x expr -> (next, assign state x expr)
+    Skip -> (next, state)
 
 execute :: Config -> State
 execute config = case step config of
