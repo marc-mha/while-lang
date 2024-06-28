@@ -1,23 +1,9 @@
 module Interpreter (execute, Mapping, State, Config (..)) where
 
 import Data.Maybe (fromMaybe)
-import Parser (AExp (..), BExp (..), Stmt (..), Value (..), Variable (..))
+import Parser (AExp (..), BExp (..), Stmt (..), Variable (..))
 
-instance Num Value where
-  (Value a) + (Value b) = Value (a + b)
-  (Value a) - (Value b) = Value (a - b)
-  (Value a) * (Value b) = Value (a * b)
-  abs (Value a) = Value (abs a)
-  signum (Value a) = Value (signum a)
-  fromInteger = Value
-
-instance Eq Value where
-  (Value a) == (Value b) = a == b
-
-instance Ord Value where
-  (Value a) `compare` (Value b) = a `compare` b
-
-type Mapping = (Variable, Value)
+type Mapping = (Variable, Integer)
 
 type State = [Mapping]
 
@@ -40,9 +26,9 @@ modifyState (m : ms) new_m =
 -- just append to the end.
 modifyState [] m = [m]
 
-evalA :: AExp -> State -> Value
+evalA :: AExp -> State -> Integer
 evalA (Num n) _ = n
-evalA (Var x) state = fromMaybe (Value 0) (lookup x state)
+evalA (Var x) state = fromMaybe 0 (lookup x state)
 evalA (a `Add` b) state = evalA a state + evalA b state
 evalA (a `Sub` b) state = evalA a state - evalA b state
 evalA (a `Mul` b) state = evalA a state * evalA b state
@@ -61,15 +47,11 @@ assign state x expr = modifyState state (x, evalA expr state)
 step :: Config -> Either State Config
 step (Config program state) = case program of
   [] -> Left state
-  (instruction : next) -> case instruction of
-    x `Assign` expr -> Right $ Config next $ assign state x expr
-    Skip -> Right $ Config next state
-    IfThenElse b s t ->
-      let u = if evalB b state then s else t
-       in Right $ Config (u ++ next) state
-    WhileDo b s ->
-      let u = IfThenElse b (s ++ [WhileDo b s]) [Skip]
-       in Right $ Config (u : next) state
+  (instruction : next) -> Right $ case instruction of
+    IfThenElse b s t -> Config ((if evalB b state then s else t) ++ next) state
+    w@(WhileDo b s) -> Config (IfThenElse b (s ++ [w]) [Skip] : next) state
+    Assign x expr -> Config next (assign state x expr)
+    Skip -> Config next state
 
 execute :: Config -> State
 execute config = case step config of

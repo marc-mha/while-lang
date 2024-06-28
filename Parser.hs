@@ -4,7 +4,6 @@
 
 module Parser
   ( Variable (..),
-    Value (..),
     Stmt (..),
     BExp (..),
     AExp (..),
@@ -32,8 +31,6 @@ import ParserLib
 
 newtype Variable = Variable String deriving (Eq, Show)
 
-newtype Value = Value Integer deriving (Show)
-
 data Stmt
   = Skip
   | !Variable `Assign` !AExp
@@ -51,7 +48,7 @@ data BExp
 
 data AExp
   = Var !Variable
-  | Num !Value
+  | Num !Integer
   | !AExp `Add` !AExp
   | !AExp `Sub` !AExp
   | !AExp `Mul` !AExp
@@ -81,8 +78,8 @@ makeOperator :: String -> Parser String
 makeOperator = operator . string
 
 -- | Consume at least one digit, then convert to an integer.
-parseValue :: Parser Value
-parseValue = Value . read <$> some digit
+parseInteger :: Parser Integer
+parseInteger = read <$> some digit
 
 -- | Consume a valid variable name, returning it.
 parseVariable :: Parser Variable
@@ -127,7 +124,7 @@ parseAUnit :: Parser AExp
 parseAUnit =
   asum
     [ Var <$> parseVariable,
-      Num <$> parseValue,
+      Num <$> parseInteger,
       parens parseAExp
     ]
 
