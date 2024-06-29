@@ -1,7 +1,7 @@
 module Main (main) where
 
 import Interpreter (Config (..), Mapping, State, execute)
-import Parser (Stmt, Value (..), Variable (..), parseProgram)
+import Parser (Stmt, Variable (..), parseProgram)
 import System.Environment (getArgs)
 
 getFilename :: IO String
@@ -19,7 +19,7 @@ generateAST source = case parseProgram source of
   Just program -> program
 
 showMapping :: Mapping -> String
-showMapping (Variable x, Value n) = x ++ " |-> " ++ show n
+showMapping (Variable x, n) = x ++ " |-> " ++ show n
 
 showState :: State -> String
 showState state = "[ " ++ pstate state ++ " ]"
@@ -33,5 +33,5 @@ main = do
   filename <- getFilename
   source <- readFile filename
   let ast = generateAST source
-  let final = execute (Config ast [])
+  let final = execute (ast, [])
   putStrLn (showState final)
