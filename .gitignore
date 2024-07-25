@@ -2,5 +2,8 @@
 *.o
 *.hi
 
+# Ignore Cabal auxillary files
+dist-newstyle/
+
 # Ignore Binary
 Main
