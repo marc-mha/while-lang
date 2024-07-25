@@ -1,4 +1,4 @@
-module Interpreter (execute, Mapping, State, Config (..)) where
+module Interpreter (execute, Mapping, State) where
 
 import Data.Maybe (fromMaybe)
 import Parser (AExp (..), BExp (..), Stmt (..), Variable (..))
@@ -41,16 +41,14 @@ evalB (a `And` b) state = evalB a state && evalB b state
 assign :: State -> Variable -> AExp -> State
 assign state x expr = modifyState state (x, evalA expr state)
 
-step :: Config -> Either State Config
-step (program, state) = case program of
-  [] -> Left state
-  (instruction : next) -> Right $ case instruction of
-    IfThenElse b s t -> ((if evalB b state then s else t) ++ next, state)
-    w@(WhileDo b s) -> (IfThenElse b (s ++ [w]) [Skip] : next, state)
-    Assign x expr -> (next, assign state x expr)
-    Skip -> (next, state)
+step :: Config -> Config
+step ([], state) = ([], state)
+step (instruction : next, state) = case instruction of
+  IfThenElse b s t -> ((if evalB b state then s else t) ++ next, state)
+  w@(WhileDo b s) -> (IfThenElse b (s ++ [w]) [Skip] : next, state)
+  Assign x expr -> (next, assign state x expr)
+  Skip -> (next, state)
 
 execute :: Config -> State
-execute config = case step config of
-  Left state -> state
-  Right config' -> execute config'
+execute ([], state) = state
+execute config = execute $ step config

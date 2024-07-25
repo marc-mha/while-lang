@@ -1,6 +1,6 @@
 module Main (main) where
 
-import Interpreter (Config (..), Mapping, State, execute)
+import Interpreter (Mapping, State, execute)
 import Parser (Stmt, Variable (..), parseProgram)
 import System.Environment (getArgs)
 
