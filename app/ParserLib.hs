@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 {-# HLINT ignore "Eta reduce" #-}
 
@@ -72,7 +73,7 @@ instance Alternative Parser where
   -- Parser that always fails
   empty = Parser p
     where
-      p input = Nothing
+      p _ = Nothing
 
   -- If `p` fails then try `q`
   p <|> q = Parser u

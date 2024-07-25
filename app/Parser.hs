@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 {-# HLINT ignore "Use <$>" #-}
 
@@ -12,14 +13,12 @@ module Parser
 where
 
 import Control.Applicative (Alternative (many, some, (<|>)), asum)
-import Data.Char (isSpace)
 import Data.List (singleton)
 import ParserLib
   ( Parser,
     alphanum,
     between,
     chainl1,
-    char,
     digit,
     eof,
     letter,
@@ -186,8 +185,8 @@ parseBUnit =
     ]
 
 -- | Parses sequences of statements separated by semi-colons.
-parseSSeq' :: Parser [Stmt]
-parseSSeq' =
+_parseSSeq :: Parser [Stmt]
+_parseSSeq =
   ( do
       s <- parseSUnit
       makeOperator ";"
