@@ -18,12 +18,12 @@ executable while-lang
     main-is:          Main.hs
 
     other-modules:    Interpreter,
-                      Parser,
-                      ParserLib
+                      Parser
 
     -- other-extensions:
 
-    build-depends:    base ^>=4.17.2.1
+    build-depends:    base ^>=4.17.2.1,
+                      ParserLib <=1.0.0.0
 
     hs-source-dirs:   app
 

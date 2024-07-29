@@ -1,0 +1,6 @@
+source-repository-package
+  type: git
+  location: https://github.com/crazy6973/ParserLib.git
+  tag: 0be2fefc8c35e1d5f33bb75998b6ffcc2fbd5710
+
+packages:   .
