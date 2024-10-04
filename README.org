@@ -42,17 +42,17 @@ r := x - y;
 This program computes a notion of the integer log base 2 of $x$ (by default 20) and the remainder, such that $x = 2^z + r$ holds.
 
 ** Execution
-To run this program, you must first compile ~Main.hs~,
+To run this program, you must first compile the program,
 #+begin_src shell
-ghc Main.hs
+cabal build
 #+end_src
-then run ~Main~ with the filename as an argument,
+then run the program with the filename as an argument,
 #+begin_src shell
-./Main examples/log2.whl
+cabal run exes -- examples/log2.whl
 #+end_src
 This should output the state of the program once it has terminated:
 #+begin_example
-$ ./Main examples/log2.whl
+$ cabal run exes -- examples/log2.whl
 [ x |-> 20, y |-> 16, z |-> 4, r |-> 4 ]
 #+end_example
 From this, we see that $x = 2^4 + 4$.
